@@ -1,61 +1,63 @@
-import pytest
-
-from dvc.repo.scm_context import scm_context
-from dvc.scm import NoSCM
+from dvc.repo.experiments import ExpRefInfo
+from dvc.scm import iter_revs
 
 
-def test_scm_context(dvc, mocker):
-    scm = dvc.scm
-    m = mocker.patch.object(
-        scm, "track_file_changes", wraps=scm.track_file_changes
-    )
+def test_iter_revs(
+    tmp_dir,
+    scm,
+):
+    """
+    new         other
+     │            │
+    old (tag) ────┘
+     │
+    root
+    """
+    old = scm.active_branch()
+    tmp_dir.scm_gen("foo", "init", commit="init")
+    rev_root = scm.get_rev()
+    tmp_dir.scm_gen("foo", "old", commit="old")
+    rev_old = scm.get_rev()
+    scm.checkout("new", create_new=True)
+    tmp_dir.scm_gen("foo", "new", commit="new")
+    rev_new = scm.get_rev()
+    scm.checkout(old)
+    scm.tag("tag")
+    scm.checkout("other", create_new=True)
+    tmp_dir.scm_gen("foo", "other", commit="new")
+    rev_other = scm.get_rev()
 
-    ret_val = 0
-    wrapped = scm_context(mocker.Mock(return_value=ret_val))
+    ref = ExpRefInfo(rev_root, "exp1")
+    scm.set_ref(str(ref), rev_new)
+    ref = ExpRefInfo(rev_root, "exp2")
+    scm.set_ref(str(ref), rev_old)
 
-    assert wrapped(dvc) == ret_val
-    m.assert_called_once_with(config=dvc.config)
-
-
-def test_track_file_changes(mocker):
-    scm = mocker.Mock(NoSCM)
-
-    with NoSCM.track_file_changes(scm):
-        pass
-
-    assert scm.reset_ignores.call_count == 1
-    assert scm.remind_to_track.call_count == 1
-    assert scm.track_changed_files.call_count == 0
-    assert scm.cleanup_ignores.call_count == 0
-    assert scm.reset_tracked_files.call_count == 1
-
-
-def test_track_file_changes_autostage(mocker):
-    scm = mocker.Mock(NoSCM)
-
-    config = {"core": {"autostage": True}}
-    with NoSCM.track_file_changes(scm, config=config):
-        pass
-
-    assert scm.track_changed_files.call_count == 1
-    assert scm.reset_ignores.call_count == 1
-    assert scm.remind_to_track.call_count == 0
-    assert scm.cleanup_ignores.call_count == 0
-    assert scm.reset_tracked_files.call_count == 1
-
-
-def test_track_file_changes_throw_and_cleanup(mocker):
-    scm = mocker.Mock(NoSCM)
-
-    class CustomException(Exception):
-        pass
-
-    with pytest.raises(CustomException, match="oops"):
-        with NoSCM.track_file_changes(scm):
-            raise CustomException("oops")
-
-    assert scm.cleanup_ignores.call_count == 1
-    assert scm.reset_ignores.call_count == 0
-    assert scm.track_changed_files.call_count == 0
-    assert scm.remind_to_track.call_count == 0
-    assert scm.reset_tracked_files.call_count == 0
+    gen = iter_revs(scm, [rev_root, "new"], 1)
+    assert gen == {rev_root: [rev_root], rev_new: ["new"]}
+    gen = iter_revs(scm, ["new"], 2)
+    assert gen == {rev_new: ["new"], rev_old: [rev_old]}
+    gen = iter_revs(scm, ["other"], -1)
+    assert gen == {
+        rev_other: ["other"],
+        rev_old: [rev_old],
+        rev_root: [rev_root],
+    }
+    gen = iter_revs(scm, ["tag"])
+    assert gen == {rev_old: ["tag"]}
+    gen = iter_revs(scm, all_branches=True)
+    assert gen == {rev_old: [old], rev_new: ["new"], rev_other: ["other"]}
+    gen = iter_revs(scm, all_tags=True)
+    assert gen == {rev_old: ["tag"]}
+    gen = iter_revs(scm, all_commits=True)
+    assert gen == {
+        rev_old: [rev_old],
+        rev_new: [rev_new],
+        rev_other: [rev_other],
+        rev_root: [rev_root],
+    }
+    gen = iter_revs(scm, all_experiments=True)
+    assert gen == {
+        rev_new: [rev_new],
+        rev_old: [rev_old],
+        rev_root: [rev_root],
+    }

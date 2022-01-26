@@ -1,6 +1,6 @@
 import json
 
-from dvc.main import main
+from dvc.cli import main
 
 
 def test_metrics_diff_simple(tmp_dir, scm, dvc, run_copy_metrics):
@@ -145,12 +145,12 @@ def test_metrics_diff_with_unchanged(tmp_dir, scm, dvc, run_copy_metrics):
 
 
 def test_no_commits(tmp_dir):
-    from dvc.repo import Repo
-    from dvc.scm.git import Git
-    from tests.dir_helpers import git_init
+    from scmrepo.git import Git
 
-    git_init(".")
-    assert Git().no_commits
+    from dvc.repo import Repo
+
+    git = Git.init(tmp_dir.fs_path)
+    assert git.no_commits
 
     assert Repo.init().metrics.diff() == {}
 
@@ -187,9 +187,10 @@ def test_metrics_diff_cli(tmp_dir, scm, dvc, run_copy_metrics, caplog, capsys):
     assert main(["metrics", "diff", "HEAD~2"]) == 0
 
     captured = capsys.readouterr()
+
     assert captured.out == (
-        "Path    Metric    Old      New      Change\n"
-        "m.yaml  foo       1.23457  3.45679  2.22222\n"
+        "Path    Metric    HEAD~2    workspace    Change\n"
+        "m.yaml  foo       1.23457   3.45679      2.22222\n"
     )
 
 

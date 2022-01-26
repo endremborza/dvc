@@ -126,12 +126,12 @@ def test_pipeline_tracked_params(tmp_dir, scm, dvc, run_copy):
 
 
 def test_no_commits(tmp_dir):
-    from dvc.repo import Repo
-    from dvc.scm.git import Git
-    from tests.dir_helpers import git_init
+    from scmrepo.git import Git
 
-    git_init(".")
-    assert Git().no_commits
+    from dvc.repo import Repo
+
+    git = Git.init(tmp_dir.fs_path)
+    assert git.no_commits
 
     assert Repo.init().params.diff() == {}
 

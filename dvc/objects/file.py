@@ -3,14 +3,12 @@ import logging
 import os
 from typing import TYPE_CHECKING, Optional
 
-from .errors import ObjectFormatError
-
 if TYPE_CHECKING:
-    from dvc.fs.base import BaseFileSystem
+    from dvc.fs.base import FileSystem
     from dvc.hash_info import HashInfo
     from dvc.types import AnyPath
 
-    from .db.base import ObjectDB
+    from .db import ObjectDB
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +16,12 @@ logger = logging.getLogger(__name__)
 class HashFile:
     def __init__(
         self,
-        path_info: Optional["AnyPath"],
-        fs: Optional["BaseFileSystem"],
+        fs_path: Optional["AnyPath"],
+        fs: Optional["FileSystem"],
         hash_info: "HashInfo",
         name: Optional[str] = None,
     ):
-        self.path_info = path_info
+        self.fs_path = fs_path
         self.fs = fs
         self.hash_info = hash_info
         self.name = name
@@ -41,7 +39,7 @@ class HashFile:
         if not isinstance(other, HashFile):
             return False
         return (
-            self.path_info == other.path_info
+            self.fs_path == other.fs_path
             and self.fs == other.fs
             and self.hash_info == other.hash_info
         )
@@ -50,7 +48,7 @@ class HashFile:
         return hash(
             (
                 self.hash_info,
-                self.path_info,
+                self.fs_path,
                 self.fs.scheme if self.fs else None,
             )
         )
@@ -58,9 +56,9 @@ class HashFile:
     def check(self, odb: "ObjectDB", check_hash: bool = True):
         if not check_hash:
             assert self.fs
-            if not self.fs.exists(self.path_info):
+            if not self.fs.exists(self.fs_path):
                 raise FileNotFoundError(
-                    errno.ENOENT, os.strerror(errno.ENOENT), self.path_info
+                    errno.ENOENT, os.strerror(errno.ENOENT), self.fs_path
                 )
             else:
                 return None
@@ -68,15 +66,16 @@ class HashFile:
         self._check_hash(odb)
 
     def _check_hash(self, odb):
-        from .stage import get_file_hash
+        from dvc.data.stage import get_file_hash
+        from dvc.objects.errors import ObjectFormatError
 
         _, actual = get_file_hash(
-            self.path_info, self.fs, self.hash_info.name, odb.state
+            self.fs_path, self.fs, self.hash_info.name, odb.state
         )
 
         logger.trace(
             "cache '%s' expected '%s' actual '%s'",
-            self.path_info,
+            self.fs_path,
             self.hash_info,
             actual,
         )

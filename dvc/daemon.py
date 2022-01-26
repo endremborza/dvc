@@ -42,23 +42,23 @@ def _spawn_windows(cmd, env):
 
 
 def _spawn_posix(cmd, env):
-    from dvc.main import main
+    from dvc.cli import main
 
     # NOTE: using os._exit instead of sys.exit, because dvc built
     # with PyInstaller has trouble with SystemExit exception and throws
     # errors such as "[26338] Failed to execute script __main__"
     try:
-        pid = os.fork()
+        pid = os.fork()  # pylint: disable=no-member
         if pid > 0:
             return
     except OSError:
         logger.exception("failed at first fork")
         os._exit(1)  # pylint: disable=protected-access
 
-    os.setsid()
+    os.setsid()  # pylint: disable=no-member
 
     try:
-        pid = os.fork()
+        pid = os.fork()  # pylint: disable=no-member
         if pid > 0:
             os._exit(0)  # pylint: disable=protected-access
     except OSError:

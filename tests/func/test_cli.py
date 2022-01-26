@@ -1,18 +1,18 @@
 import os
 
-from dvc.cli import parse_args
-from dvc.command.add import CmdAdd
-from dvc.command.base import CmdBase
-from dvc.command.checkout import CmdCheckout
-from dvc.command.config import CmdConfig
-from dvc.command.data_sync import CmdDataPull, CmdDataPush
-from dvc.command.gc import CmdGC
-from dvc.command.init import CmdInit
-from dvc.command.remove import CmdRemove
-from dvc.command.repro import CmdRepro
-from dvc.command.run import CmdRun
-from dvc.command.status import CmdDataStatus
-from dvc.exceptions import DvcException, DvcParserError
+from dvc.cli import DvcParserError, parse_args
+from dvc.cli.command import CmdBase
+from dvc.commands.add import CmdAdd
+from dvc.commands.checkout import CmdCheckout
+from dvc.commands.config import CmdConfig
+from dvc.commands.data_sync import CmdDataPull, CmdDataPush
+from dvc.commands.gc import CmdGC
+from dvc.commands.init import CmdInit
+from dvc.commands.remove import CmdRemove
+from dvc.commands.repro import CmdRepro
+from dvc.commands.run import CmdRun
+from dvc.commands.status import CmdDataStatus
+from dvc.exceptions import DvcException
 from tests.basic_env import TestDvc
 
 
@@ -66,7 +66,7 @@ class TestRun(TestDvc):
         self.assertEqual(args.outs, [out1, out2])
         self.assertEqual(args.outs_no_cache, [out_no_cache1, out_no_cache2])
         self.assertEqual(args.file, fname)
-        self.assertEqual(args.cmd, [cmd, arg1, arg2])
+        self.assertEqual(args.command, [cmd, arg1, arg2])
 
         cmd_cls.repo.close()
 

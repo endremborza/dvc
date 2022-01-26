@@ -11,7 +11,7 @@ from typing import (
     Set,
 )
 
-from funcy import cached_property, memoize, nullcontext
+from funcy import cached_property, nullcontext
 
 from dvc.utils import dict_md5
 
@@ -20,8 +20,9 @@ if TYPE_CHECKING:
     from pygtrie import Trie
 
     from dvc.dependency import Dependency, ParamsDependency
-    from dvc.fs.base import BaseFileSystem
-    from dvc.objects import HashInfo, ObjectDB
+    from dvc.fs.base import FileSystem
+    from dvc.hash_info import HashInfo
+    from dvc.objects.db import ObjectDB
     from dvc.output import Output
     from dvc.repo.stage import StageLoad
     from dvc.stage import Stage
@@ -35,7 +36,7 @@ class Index:
     def __init__(
         self,
         repo: "Repo",  # pylint: disable=redefined-outer-name
-        fs: "BaseFileSystem" = None,
+        fs: "FileSystem" = None,
         stages: List["Stage"] = None,
     ) -> None:
         """Index is an immutable collection of stages.
@@ -58,7 +59,7 @@ class Index:
         """
 
         self.repo: "Repo" = repo
-        self.fs: "BaseFileSystem" = fs or repo.fs
+        self.fs: "FileSystem" = fs or repo.fs
         self.stage_collector: "StageLoad" = repo.stage
         if stages is not None:
             self.stages: List["Stage"] = stages
@@ -146,9 +147,11 @@ class Index:
 
         return build_outs_trie(self.stages)
 
-    @property
+    @cached_property
     def graph(self) -> "DiGraph":
-        return self.build_graph()
+        from dvc.repo.graph import build_graph
+
+        return build_graph(self.stages, self.outs_trie)
 
     @cached_property
     def outs_graph(self) -> "DiGraph":
@@ -230,15 +233,9 @@ class Index:
             stages.remove(stage)
         return stages
 
-    @memoize
-    def build_graph(self) -> "DiGraph":
-        from dvc.repo.graph import build_graph
-
-        return build_graph(self.stages, self.outs_trie)
-
     def check_graph(self) -> None:
         if not getattr(self.repo, "_skip_graph_checks", False):
-            self.build_graph()
+            self.graph  # pylint: disable=pointless-statement
 
     def dumpd(self) -> Dict[str, Dict]:
         def dump(stage: "Stage"):
@@ -275,7 +272,7 @@ if __name__ == "__main__":
         # pylint: disable=pointless-statement
         print("no of stages", len(index.stages))
     with log_durations(print, "building graph"):
-        index.build_graph()
+        index.graph  # pylint: disable=pointless-statement
     with log_durations(print, "calculating hash"):
         print(index.identifier)
     with log_durations(print, "updating"):

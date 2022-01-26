@@ -3,11 +3,11 @@
 import logging
 from typing import TYPE_CHECKING, Iterable, Optional
 
-from dvc.objects.db import get_index
+from dvc.data.db import get_index
 
 if TYPE_CHECKING:
     from dvc.hash_info import HashInfo
-    from dvc.objects.db.base import ObjectDB
+    from dvc.objects.db import ObjectDB
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +55,12 @@ class DataCloud:
         raise NoRemoteError(error_msg)
 
     def _init_odb(self, name):
+        from dvc.data.db import get_odb
         from dvc.fs import get_cloud_fs
-        from dvc.objects.db import get_odb
 
-        cls, config, path_info = get_cloud_fs(self.repo, name=name)
+        cls, config, fs_path = get_cloud_fs(self.repo, name=name)
         config["tmp_dir"] = self.repo.index_db_dir
-        return get_odb(cls(**config), path_info, **config)
+        return get_odb(cls(**config), fs_path, **config)
 
     def push(
         self,
@@ -78,7 +78,7 @@ class DataCloud:
                 By default remote from core.remote config option is used.
             odb: optional ODB to push to. Overrides remote.
         """
-        from dvc.objects.transfer import transfer
+        from dvc.data.transfer import transfer
 
         if not odb:
             odb = self.get_remote_odb(remote, "push")
@@ -107,7 +107,7 @@ class DataCloud:
                 By default remote from core.remote config option is used.
             odb: optional ODB to pull from. Overrides remote.
         """
-        from dvc.objects.transfer import transfer
+        from dvc.data.transfer import transfer
 
         if not odb:
             odb = self.get_remote_odb(remote, "pull")
@@ -141,7 +141,7 @@ class DataCloud:
             log_missing: log warning messages if file doesn't exist
                 neither in cache, neither in cloud.
         """
-        from dvc.objects.status import compare_status
+        from dvc.data.status import compare_status
 
         if not odb:
             odb = self.get_remote_odb(remote, "status")
@@ -156,5 +156,6 @@ class DataCloud:
         )
 
     def get_url_for(self, remote, checksum):
-        remote_odb = self.get_remote_odb(remote)
-        return str(remote_odb.hash_to_path_info(checksum))
+        odb = self.get_remote_odb(remote)
+        path = odb.hash_to_path(checksum)
+        return odb.fs.unstrip_protocol(path)

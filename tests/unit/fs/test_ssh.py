@@ -122,7 +122,7 @@ def test_ssh_port(mock_file, config, expected_port):
         ),
         (
             {"host": "example.com"},
-            [os.path.expanduser("~/.ssh/not_default.key")],
+            ["~/.ssh/not_default.key"],
         ),
         (
             {
@@ -141,7 +141,12 @@ def test_ssh_port(mock_file, config, expected_port):
 )
 def test_ssh_keyfile(mock_file, config, expected_keyfile):
     fs = SSHFileSystem(**config)
-    assert fs.fs_args.get("client_keys") == expected_keyfile
+    expected_keyfiles = (
+        [os.path.expanduser(path) for path in expected_keyfile]
+        if expected_keyfile
+        else expected_keyfile
+    )
+    assert fs.fs_args.get("client_keys") == expected_keyfiles
 
 
 mock_ssh_multi_key_config = """
@@ -178,23 +183,3 @@ def test_ssh_multi_identity_files(mock_file):
 def test_ssh_gss_auth(mock_file, config, expected_gss_auth):
     fs = SSHFileSystem(**config)
     assert fs.fs_args["gss_auth"] == expected_gss_auth
-
-
-@pytest.mark.parametrize(
-    "url, path",
-    [
-        ("ssh://a@b/", "/"),
-        ("ssh://a@b:/", "/"),
-        ("ssh://a@b/home", "/home"),
-        ("ssh://a@b:/home", "/home"),
-        ("ssh://a@b/home/tmp", "/home/tmp"),
-        ("ssh://a@b:/home/tmp", "/home/tmp"),
-        ("ssh://a@b/home/tmp/something", "/home/tmp/something"),
-        ("ssh://a@b:/home/tmp/something", "/home/tmp/something"),
-    ],
-)
-def test_ssh_fs_path_management(url, path):
-    fs = SSHFileSystem(host="x.y.z")
-
-    path_info = fs.PATH_CLS(url)
-    assert fs._with_bucket(path_info) == path

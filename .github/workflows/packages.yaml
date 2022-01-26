@@ -2,7 +2,7 @@ name: Build packages
 on:
   push:
     branches:
-    - master
+    - main
   release:
     types: [released, prereleased]
   workflow_dispatch:
@@ -10,13 +10,13 @@ jobs:
   deb:
     runs-on: ubuntu-18.04
     steps:
-    - uses: actions/checkout@v2.3.4
+    - uses: actions/checkout@v2.4.0
       with:
           fetch-depth: 0
-    - name: Set up Python 3.8
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2.2.2
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Set up Ruby 2.4
       uses: actions/setup-ruby@v1.1.3
       with:
@@ -41,13 +41,13 @@ jobs:
   rpm:
     runs-on: ubuntu-18.04
     steps:
-    - uses: actions/checkout@v2.3.4
+    - uses: actions/checkout@v2.4.0
       with:
         fetch-depth: 0
-    - name: Set up Python 3.8
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2.2.2
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Set up Ruby 2.4
       uses: actions/setup-ruby@v1.1.3
       with:
@@ -72,13 +72,13 @@ jobs:
   osxpkg:
     runs-on: macos-10.15
     steps:
-    - uses: actions/checkout@v2.3.4
+    - uses: actions/checkout@v2.4.0
       with:
         fetch-depth: 0
-    - name: Set up Python 3.8
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2.2.2
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Set up Ruby 2.4
       uses: actions/setup-ruby@v1.1.3
       with:
@@ -106,13 +106,13 @@ jobs:
   exe:
     runs-on: windows-2019
     steps:
-    - uses: actions/checkout@v2.3.4
+    - uses: actions/checkout@v2.4.0
       with:
         fetch-depth: 0
-    - name: Set up Python 3.8
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2.2.2
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Install deps
       run: |
         pip install .[all]
@@ -136,7 +136,7 @@ jobs:
   pip:
     runs-on: ubuntu-18.04
     steps:
-    - uses: actions/checkout@v2.3.4
+    - uses: actions/checkout@v2.4.0
       with:
         fetch-depth: 0
     - name: Set up Python 3.7

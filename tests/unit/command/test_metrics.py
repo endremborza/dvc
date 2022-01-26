@@ -1,7 +1,7 @@
 import json
 
 from dvc.cli import parse_args
-from dvc.command.metrics import CmdMetricsDiff, CmdMetricsShow
+from dvc.commands.metrics import CmdMetricsDiff, CmdMetricsShow
 
 
 def test_metrics_diff(dvc, mocker, capsys):
@@ -47,6 +47,8 @@ def test_metrics_diff(dvc, mocker, capsys):
         precision=5,
         markdown=True,
         round_digits=True,
+        a_rev="HEAD~10",
+        b_rev="HEAD~1",
     )
 
 

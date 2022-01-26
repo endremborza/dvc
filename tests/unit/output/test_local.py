@@ -1,8 +1,8 @@
 import os
 from unittest.mock import patch
 
+from dvc.data.meta import Meta
 from dvc.hash_info import HashInfo
-from dvc.objects.meta import Meta
 from dvc.output import Output
 from dvc.stage import Stage
 from dvc.utils import relpath
@@ -36,7 +36,7 @@ def test_str_on_local_absolute_path(dvc):
     output = Output(stage, abs_path, cache=False)
 
     assert output.def_path == rel_path
-    assert output.path_info.fspath == abs_path
+    assert output.fs_path == abs_path
     assert str(output) == rel_path
 
 
@@ -48,7 +48,7 @@ def test_str_on_external_absolute_path(dvc):
     output = Output(stage, abs_path, cache=False)
 
     assert output.def_path == abs_path
-    assert output.path_info.fspath == abs_path
+    assert output.fs_path == abs_path
     assert str(output) == abs_path
 
 

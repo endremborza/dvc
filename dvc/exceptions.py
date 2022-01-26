@@ -128,13 +128,6 @@ class NotDvcRepoError(DvcException):
     """Thrown if a directory is not a DVC repo"""
 
 
-class DvcParserError(DvcException):
-    """Base class for CLI parser errors."""
-
-    def __init__(self):
-        super().__init__("parser error")
-
-
 class CyclicGraphError(DvcException):
     def __init__(self, stages):
         assert isinstance(stages, list)
@@ -157,9 +150,9 @@ class InitError(DvcException):
 
 
 class ReproductionError(DvcException):
-    def __init__(self, dvc_file_name):
-        self.path = dvc_file_name
-        super().__init__(f"failed to reproduce '{dvc_file_name}'")
+    def __init__(self, name):
+        self.name = name
+        super().__init__(f"failed to reproduce '{name}'")
 
 
 class BadMetricError(DvcException):
@@ -213,18 +206,6 @@ class DvcIgnoreInCollectedDirError(DvcException):
         super().__init__(
             ".dvcignore file should not be in collected dir path: "
             "'{}'".format(ignore_dirname)
-        )
-
-
-class GitHookAlreadyExistsError(DvcException):
-    def __init__(self, hook_name):
-        from dvc.utils import format_link
-
-        super().__init__(
-            "Hook '{}' already exists. Please refer to {} for more "
-            "info.".format(
-                hook_name, format_link("https://man.dvc.org/install")
-            )
         )
 
 
@@ -305,7 +286,7 @@ class PathMissingError(DvcException):
 
 
 class RemoteCacheRequiredError(DvcException):
-    def __init__(self, path_info):
+    def __init__(self, scheme, fs_path):
         from dvc.utils import format_link
 
         super().__init__(
@@ -314,8 +295,8 @@ class RemoteCacheRequiredError(DvcException):
                 "existing cache on '{}' remote. See {} for information on how "
                 "to set up remote cache."
             ).format(
-                path_info,
-                path_info.scheme,
+                fs_path,
+                scheme,
                 format_link("https://man.dvc.org/config#cache"),
             )
         )
@@ -350,12 +331,12 @@ class CacheLinkError(DvcException):
         )
     )
 
-    def __init__(self, path_infos):
+    def __init__(self, fs_paths):
         msg = "No possible cache link types for '{}'. {}".format(
-            ", ".join([str(path) for path in path_infos]), self.SUPPORT_LINK
+            ", ".join(fs_paths), self.SUPPORT_LINK
         )
         super().__init__(msg)
-        self.path_infos = path_infos
+        self.fs_paths = fs_paths
 
 
 class CircularImportError(DvcException):

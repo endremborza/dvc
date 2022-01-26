@@ -11,12 +11,16 @@ from dvc.render.utils import get_files
 LIVE_SCRIPT = dedent(
     """
         from dvclive import Live
+        from PIL import Image
+
         import sys
         r = 2
         metrics_logger = Live()
         for i in range(r):
            metrics_logger.log("loss", 1-i/r)
            metrics_logger.log("accuracy", i/r)
+           image = Image.new("RGB", (10,10), (i,i,i))
+           metrics_logger.log("image.jpg", image)
            metrics_logger.next_step()"""
 )
 
@@ -129,6 +133,8 @@ def test_live_provides_metrics(tmp_dir, dvc, live_stage):
     files = get_files(plots_data)
     assert os.path.join("logs", "accuracy.tsv") in files
     assert os.path.join("logs", "loss.tsv") in files
+    assert os.path.join("logs", "0", "image.jpg") in files
+    assert os.path.join("logs", "1", "image.jpg") in files
 
 
 def test_live_provides_no_metrics(tmp_dir, dvc, live_stage):
@@ -235,8 +241,16 @@ def test_live_checkpoints_resume(
     assert checkpoints_metric(results, "logs.json", "metric2") == [8, 6, 4, 2]
 
 
-def test_dvc_generates_html_during_run(tmp_dir, dvc, mocker, live_stage):
+@pytest.mark.parametrize("auto_open", [False, True])
+def test_dvc_generates_html_during_run(
+    tmp_dir, dvc, mocker, live_stage, auto_open
+):
+    if auto_open:
+        with dvc.config.edit() as conf:
+            conf["plots"]["auto_open"] = True
+
     show_spy = mocker.spy(dvc.live, "show")
+    webbrowser_open = mocker.patch("dvc.repo.live.webbrowser_open")
 
     # make sure script takes more time to execute than one monitor sleep cycle
     monitor_await_time = 0.01
@@ -258,6 +272,7 @@ def test_dvc_generates_html_during_run(tmp_dir, dvc, mocker, live_stage):
     live_stage(summary=True, live="logs", code=script)
 
     assert show_spy.call_count == 2
+    assert webbrowser_open.call_count == (2 if auto_open else 0)
 
 
 def test_dvclive_stage_with_different_wdir(tmp_dir, scm, dvc):

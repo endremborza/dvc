@@ -2,8 +2,10 @@ import logging
 import os
 from typing import (
     TYPE_CHECKING,
+    Any,
     Dict,
     Iterable,
+    Iterator,
     Mapping,
     Optional,
     Tuple,
@@ -35,6 +37,8 @@ sudo wget https://dvc.org/deb/dvc.list
 sudo apt-get update
 sudo apt-get install --yes dvc
 popd
+
+sudo echo "OK" > /var/log/dvc-machine-init.log
 """
 
 
@@ -181,11 +185,12 @@ class MachineManager:
         """Create and start the specified machine instance."""
         config, backend = self.get_config_and_backend(name)
         if "startup_script" in config:
-            with open(config["startup_script"]) as fobj:
+            with open(config["startup_script"], encoding="utf-8") as fobj:
                 startup_script = fobj.read()
         else:
             startup_script = DEFAULT_STARTUP_SCRIPT
         config["startup_script"] = startup_script
+        config.pop("setup_script", None)
         return backend.create(**config)
 
     def destroy(self, name: Optional[str]):
@@ -200,3 +205,20 @@ class MachineManager:
     def run_shell(self, name: Optional[str]):
         config, backend = self.get_config_and_backend(name)
         return backend.run_shell(**config)
+
+    def status(self, name: str) -> Iterator[Dict[Any, Any]]:
+        config, backend = self.get_config_and_backend(name)
+        return backend.instances(**config)
+
+    def rename(self, name: str, new: str):
+        """move configuration to a new location if the machine is running."""
+        config, backend = self.get_config_and_backend(name)
+        return backend.rename(new=new, **config)
+
+    def get_executor_kwargs(self, name: Optional[str]):
+        config, backend = self.get_config_and_backend(name)
+        return backend.get_executor_kwargs(**config)
+
+    def get_setup_script(self, name: Optional[str]) -> Optional[str]:
+        config, _backend = self.get_config_and_backend(name)
+        return config.get("setup_script")

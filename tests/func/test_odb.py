@@ -4,9 +4,9 @@ import stat
 import configobj
 import pytest
 
+from dvc.cli import main
+from dvc.data.db import ODBManager
 from dvc.hash_info import HashInfo
-from dvc.main import main
-from dvc.objects.db import ODBManager
 from dvc.objects.errors import ObjectFormatError
 from dvc.utils import relpath
 from tests.basic_env import TestDir, TestDvc
@@ -37,7 +37,7 @@ class TestCache(TestDvc):
         self.assertIn(self.cache2_md5, md5_list)
 
     def test_get(self):
-        cache = ODBManager(self.dvc).local.hash_to_path_info(self.cache1_md5)
+        cache = ODBManager(self.dvc).local.hash_to_path(self.cache1_md5)
         self.assertEqual(os.fspath(cache), self.cache1)
 
 
@@ -47,16 +47,16 @@ class TestCacheLoadBadDirCache(TestDvc):
         self.assertEqual(len(ret), 0)
 
     def test(self):
-        from dvc.objects import load
+        from dvc.data import load
 
         dir_hash = "123.dir"
-        fname = os.fspath(self.dvc.odb.local.hash_to_path_info(dir_hash))
+        fname = os.fspath(self.dvc.odb.local.hash_to_path(dir_hash))
         self.create(fname, "<clearly>not,json")
         with pytest.raises(ObjectFormatError):
             load(self.dvc.odb.local, HashInfo("md5", dir_hash))
 
         dir_hash = "234.dir"
-        fname = os.fspath(self.dvc.odb.local.hash_to_path_info(dir_hash))
+        fname = os.fspath(self.dvc.odb.local.hash_to_path(dir_hash))
         self.create(fname, '{"a": "b"}')
         with pytest.raises(ObjectFormatError):
             load(self.dvc.odb.local, HashInfo("md5", dir_hash))
@@ -88,7 +88,7 @@ class TestExternalCacheDir(TestDvc):
 
         self.dvc.__init__()
 
-        assert self.dvc.odb.ssh.path_info == ssh_url + "/tmp"
+        assert self.dvc.odb.ssh.fs_path == "/tmp"
 
 
 class TestSharedCacheDir(TestDir):
@@ -106,10 +106,10 @@ class TestSharedCacheDir(TestDir):
 
             self.assertFalse(os.path.exists(os.path.join(".dvc", "cache")))
 
-            with open("common", "w+") as fd:
+            with open("common", "w+", encoding="utf-8") as fd:
                 fd.write("common")
 
-            with open("unique", "w+") as fd:
+            with open("unique", "w+", encoding="utf-8") as fd:
                 fd.write(d)
 
             ret = main(["add", "common", "unique"])
@@ -158,7 +158,7 @@ class TestCmdCacheDir(TestDvc):
         self.assertEqual(ret, 0)
 
         config = configobj.ConfigObj(self.dvc.config.files["repo"])
-        self.assertEqual(config["cache"]["dir"], dname.replace("\\", "/"))
+        self.assertEqual(config["cache"]["dir"], dname)
 
     def test_relative_path(self):
         tmpdir = os.path.realpath(self.mkdtemp())

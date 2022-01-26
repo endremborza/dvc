@@ -1,8 +1,8 @@
 import pytest
 
+from dvc.data.db import get_index
 from dvc.exceptions import DownloadError, UploadError
 from dvc.fs.local import LocalFileSystem
-from dvc.objects.db import get_index
 from dvc.utils.fs import remove
 from tests.utils import clean_staging
 
@@ -61,12 +61,12 @@ def test_clear_on_download_err(tmp_dir, dvc, index, mocker):
     dvc.push()
 
     for _, _, oid in out.obj:
-        remove(dvc.odb.local.get(oid).path_info)
-    remove(out.path_info)
+        remove(dvc.odb.local.get(oid).fs_path)
+    remove(out.fs_path)
 
     assert list(index.hashes())
 
-    mocker.patch("dvc.fs.local.LocalFileSystem.upload", side_effect=Exception)
+    mocker.patch("dvc.fs.utils.transfer", side_effect=Exception)
     with pytest.raises(DownloadError):
         dvc.pull()
     assert not list(index.hashes())
@@ -83,7 +83,7 @@ def test_partial_upload(tmp_dir, dvc, index, mocker):
             raise Exception("stop baz")
         return original(self, from_file, to_info, name, **kwargs)
 
-    mocker.patch.object(LocalFileSystem, "upload", unreliable_upload)
+    mocker.patch("dvc.fs.utils.transfer", unreliable_upload)
     with pytest.raises(UploadError):
         dvc.push()
     assert not list(index.hashes())

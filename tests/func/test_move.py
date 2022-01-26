@@ -3,9 +3,9 @@ import textwrap
 
 import pytest
 
+from dvc.cli import main
 from dvc.dvcfile import DVC_FILE_SUFFIX
 from dvc.exceptions import DvcException, MoveNotDataSourceError
-from dvc.main import main
 from dvc.utils.serialize import load_yaml
 from tests.basic_env import TestDvc, TestDvcGit
 from tests.func.test_repro import TestRepro
@@ -66,7 +66,9 @@ class TestMoveNotDataSource(TestRepro):
 
 class TestMoveFileWithExtension(TestDvc):
     def test(self):
-        with open(os.path.join(self.dvc.root_dir, "file.csv"), "w") as fd:
+        with open(
+            os.path.join(self.dvc.root_dir, "file.csv"), "w", encoding="utf-8"
+        ) as fd:
             fd.write("1,2,3\n")
 
         self.dvc.add("file.csv")

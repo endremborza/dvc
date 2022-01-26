@@ -1,7 +1,10 @@
 import os
+import sys
 from contextlib import suppress
 
 import pytest
+
+from dvc.testing.fixtures import *  # noqa, pylint: disable=wildcard-import
 
 from .dir_helpers import *  # noqa, pylint: disable=wildcard-import
 from .remotes import *  # noqa, pylint: disable=wildcard-import
@@ -52,6 +55,14 @@ def enable_ui():
     from dvc.ui import ui
 
     ui.enable()
+
+
+@pytest.fixture(autouse=True)
+def clean_repos():
+    # pylint: disable=redefined-outer-name
+    from dvc.external_repo import clean_repos
+
+    clean_repos()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -159,7 +170,7 @@ def pytest_configure(config):
             enabled_remotes.add(remote_name)
 
 
-@pytest.fixture()
+@pytest.fixture
 def custom_template(tmp_dir, dvc):
     try:
         import importlib_resources
@@ -178,3 +189,45 @@ def custom_template(tmp_dir, dvc):
 
 
 scriptify_fixture = pytest.fixture(lambda: scriptify, name="scriptify")
+
+
+@pytest.fixture(autouse=True)
+def mocked_webbrowser_open(mocker):
+    mocker.patch("webbrowser.open")
+
+
+@pytest.fixture(autouse=True)
+def isolate(tmp_path_factory, monkeypatch) -> None:
+    path = tmp_path_factory.mktemp("mock")
+    home_dir = path / "home"
+    home_dir.mkdir()
+
+    if sys.platform == "win32":
+        home_drive, home_path = os.path.splitdrive(home_dir)
+        monkeypatch.setenv("USERPROFILE", str(home_dir))
+        monkeypatch.setenv("HOMEDRIVE", home_drive)
+        monkeypatch.setenv("HOMEPATH", home_path)
+
+        for env_var, sub_path in (
+            ("APPDATA", "Roaming"),
+            ("LOCALAPPDATA", "Local"),
+        ):
+            path = home_dir / "AppData" / sub_path
+            path.mkdir(parents=True)
+            monkeypatch.setenv(env_var, os.fspath(path))
+    else:
+        monkeypatch.setenv("HOME", str(home_dir))
+
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    contents = b"""
+[user]
+name=DVC Tester
+email=dvctester@example.com
+[init]
+defaultBranch=master
+"""
+    (home_dir / ".gitconfig").write_bytes(contents)
+
+    import pygit2
+
+    pygit2.settings.search_path[pygit2.GIT_CONFIG_LEVEL_GLOBAL] = str(home_dir)

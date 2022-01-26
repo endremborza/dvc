@@ -2,10 +2,10 @@ import os
 
 import pytest
 
+from dvc.data.db import get_index
 from dvc.fs import get_cloud_fs
 from dvc.fs.gs import GSFileSystem
 from dvc.fs.s3 import S3FileSystem
-from dvc.objects.db import get_index
 
 
 def test_remote_with_hash_jobs(dvc):
@@ -56,7 +56,7 @@ def test_makedirs_not_create_for_top_level_path(fs_cls, dvc, mocker):
     mocked_client = mocker.PropertyMock()
     mocker.patch.object(fs_cls, "fs", mocked_client)
 
-    fs.makedirs(fs.PATH_CLS(url))
+    fs.makedirs(url)
     assert not mocked_client.called
 
 

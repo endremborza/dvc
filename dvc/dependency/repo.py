@@ -5,13 +5,11 @@ from typing import TYPE_CHECKING, Dict, Optional, Set, Tuple
 
 from voluptuous import Required
 
-from dvc.path_info import PathInfo
-
 from .base import Dependency
 
 if TYPE_CHECKING:
     from dvc.hash_info import HashInfo
-    from dvc.objects.db.base import ObjectDB
+    from dvc.objects.db import ObjectDB
     from dvc.objects.file import HashFile
 
 
@@ -34,7 +32,7 @@ class RepoDependency(Dependency):
         self._staged_objs: Dict[str, "HashFile"] = {}
         super().__init__(stage, *args, **kwargs)
 
-    def _parse_path(self, fs, path_info):
+    def _parse_path(self, fs, fs_path):
         return None
 
     @property
@@ -63,14 +61,14 @@ class RepoDependency(Dependency):
         return {self.PARAM_PATH: self.def_path, self.PARAM_REPO: self.def_repo}
 
     def download(self, to, jobs=None):
-        from dvc.objects.checkout import checkout
+        from dvc.data.checkout import checkout
 
         for odb, objs in self.get_used_objs().items():
             self.repo.cloud.pull(objs, jobs=jobs, odb=odb)
 
         obj = self.get_obj()
         checkout(
-            to.path_info,
+            to.fs_path,
             to.fs,
             obj,
             self.repo.odb.local,
@@ -100,9 +98,9 @@ class RepoDependency(Dependency):
         self, obj_only=False, **kwargs
     ) -> Tuple[Dict[Optional["ObjectDB"], Set["HashInfo"]], "HashFile"]:
         from dvc.config import NoRemoteError
+        from dvc.data.stage import stage
+        from dvc.data.tree import Tree
         from dvc.exceptions import NoOutputOrStageError, PathMissingError
-        from dvc.objects.stage import stage
-        from dvc.objects.tree import Tree
 
         local_odb = self.repo.odb.local
         locked = kwargs.pop("locked", True)
@@ -114,11 +112,11 @@ class RepoDependency(Dependency):
             if locked and self.def_repo.get(self.PARAM_REV_LOCK) is None:
                 self.def_repo[self.PARAM_REV_LOCK] = rev
 
-            path_info = PathInfo(repo.root_dir) / str(self.def_path)
+            path = os.path.abspath(os.path.join(repo.root_dir, self.def_path))
             if not obj_only:
                 try:
                     for odb, obj_ids in repo.used_objs(
-                        [os.fspath(path_info)],
+                        [path],
                         force=True,
                         jobs=kwargs.get("jobs"),
                         recursive=True,
@@ -134,7 +132,7 @@ class RepoDependency(Dependency):
             try:
                 staging, _, staged_obj = stage(
                     local_odb,
-                    path_info,
+                    path,
                     repo.repo_fs,
                     local_odb.fs.PARAM_CHECKSUM,
                 )
@@ -152,10 +150,10 @@ class RepoDependency(Dependency):
             return used_obj_ids, staged_obj
 
     def _check_circular_import(self, odb, obj_ids):
+        from dvc.data.db.reference import ReferenceObjectDB
+        from dvc.data.tree import Tree
         from dvc.exceptions import CircularImportError
         from dvc.fs.repo import RepoFileSystem
-        from dvc.objects.db.reference import ReferenceObjectDB
-        from dvc.objects.tree import Tree
 
         if not isinstance(odb, ReferenceObjectDB):
             return

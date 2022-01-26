@@ -7,7 +7,7 @@ import pytest
 
 from dvc.exceptions import PathMissingError
 from dvc.repo import Repo
-from dvc.scm.base import CloneError
+from dvc.scm import CloneError
 
 FS_STRUCTURE = {
     "README.md": "content",
@@ -114,6 +114,18 @@ def test_ls_repo_dvc_only_recursive(tmp_dir, dvc, scm):
             (("model", "people.csv"), True),
             (("structure.xml",), True),
         ),
+    )
+
+
+def test_ls_repo_with_new_path_dir(tmp_dir, dvc, scm):
+    tmp_dir.scm_gen(FS_STRUCTURE, commit="init")
+    tmp_dir.dvc_gen({"mysub": {}}, commit="dvc")
+    tmp_dir.gen({"mysub/sub": {"foo": "content"}})
+
+    files = Repo.ls(os.fspath(tmp_dir), path="mysub/sub")
+    match_files(
+        files,
+        ((("foo",), False),),
     )
 
 
@@ -545,3 +557,24 @@ def test_subrepo(dvc_top_level, erepo):
     assert _list_files(subrepo, ".") == common_outputs
     assert _list_files(subrepo, "scm_dir") == {"ipsum"}
     assert _list_files(subrepo, "dvc_dir") == {"lorem"}
+
+
+def test_broken_symlink(tmp_dir, dvc):
+    from dvc.system import System
+
+    tmp_dir.gen("file", "content")
+    System.symlink("file", "link")
+
+    os.remove("file")
+
+    entries = Repo.ls(os.fspath(tmp_dir))
+
+    assert entries == [
+        {
+            "isout": False,
+            "isdir": False,
+            "isexec": False,
+            "path": ".dvcignore",
+        },
+        {"isout": False, "isdir": False, "isexec": False, "path": "link"},
+    ]

@@ -16,17 +16,21 @@ from dvc.exceptions import (
     PathMissingError,
 )
 from dvc.repo import Repo
+from dvc.scm import CloneError, map_scm_exception
 from dvc.utils import relpath
 
 logger = logging.getLogger(__name__)
 
 
 @contextmanager
+@map_scm_exception()
 def external_repo(
     url, rev=None, for_write=False, cache_dir=None, cache_types=None, **kwargs
 ):
+    from scmrepo.git import Git
+
     from dvc.config import NoRemoteError
-    from dvc.scm.git import Git
+    from dvc.fs.git import GitFileSystem
 
     logger.debug("Creating external repo %s@%s", url, rev)
     path = _cached_clone(url, rev, for_write=for_write)
@@ -42,12 +46,18 @@ def external_repo(
     config = _get_remote_config(url) if os.path.isdir(url) else {}
     config.update(cache_config)
 
-    root_dir = path if for_write else os.path.realpath(path)
+    if for_write:
+        root_dir = path
+        fs = None
+    else:
+        root_dir = os.path.realpath(path)
+        scm = Git(root_dir)
+        fs = GitFileSystem(scm=scm, rev=rev)
+
     repo_kwargs = dict(
         root_dir=root_dir,
         url=url,
-        scm=None if for_write else Git(root_dir),
-        rev=None if for_write else rev,
+        fs=fs,
         config=config,
         repo_factory=erepo_factory(url, cache_config),
         **kwargs,
@@ -83,7 +93,7 @@ def erepo_factory(url, cache_config, *args, **kwargs):
     def make_repo(path, **_kwargs):
         _config = cache_config.copy()
         if os.path.isdir(url):
-            rel = os.path.relpath(path, _kwargs["scm"].root_dir)
+            rel = os.path.relpath(path, _kwargs["fs"].fs_args["scm"].root_dir)
             repo_path = os.path.join(url, rel)
             _config.update(_get_remote_config(repo_path))
         return Repo(path, config=_config, **_kwargs)
@@ -173,7 +183,7 @@ def _clone_default_branch(url, rev, for_write=False):
 
     The cloned is reactualized with git pull unless rev is a known sha.
     """
-    from dvc.scm.git import Git
+    from scmrepo.git import Git
 
     clone_path, shallow = CLONES.get(url, (None, False))
 
@@ -198,14 +208,15 @@ def _clone_default_branch(url, rev, for_write=False):
                     logger.debug("erepo: git pull '%s'", url)
                     git.pull()
         else:
+            from dvc.scm import clone
+
             logger.debug("erepo: git clone '%s' to a temporary dir", url)
             clone_path = tempfile.mkdtemp("dvc-clone")
             if not for_write and rev and not Git.is_sha(rev):
                 # If rev is a tag or branch name try shallow clone first
-                from dvc.scm.base import CloneError
 
                 try:
-                    git = Git.clone(url, clone_path, shallow_branch=rev)
+                    git = clone(url, clone_path, shallow_branch=rev)
                     shallow = True
                     logger.debug(
                         "erepo: using shallow clone for branch '%s'", rev
@@ -213,7 +224,7 @@ def _clone_default_branch(url, rev, for_write=False):
                 except CloneError:
                     pass
             if not git:
-                git = Git.clone(url, clone_path)
+                git = clone(url, clone_path)
                 shallow = False
             CLONES[url] = (clone_path, shallow)
     finally:
@@ -237,7 +248,7 @@ def _unshallow(git):
 
 
 def _git_checkout(repo_path, rev):
-    from dvc.scm.git import Git
+    from scmrepo.git import Git
 
     logger.debug("erepo: git checkout %s@%s", repo_path, rev)
     git = Git(repo_path)

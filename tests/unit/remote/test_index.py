@@ -3,7 +3,7 @@ import os
 import pytest
 from funcy import first
 
-from dvc.objects.db.index import ObjectDBIndex
+from dvc.data.db.index import ObjectDBIndex
 
 
 @pytest.fixture
@@ -14,11 +14,6 @@ def index(dvc):
 
 def test_init(dvc, index):
     assert str(index.index_dir) == os.path.join(dvc.tmp_dir, "index", "foo")
-
-
-def test_is_dir_hash(dvc, index):
-    assert index.is_dir_hash("foo.dir")
-    assert not index.is_dir_hash("foo")
 
 
 def test_roundtrip(dvc, index):

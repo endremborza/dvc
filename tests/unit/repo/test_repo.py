@@ -28,7 +28,7 @@ def test_find_outs_by_path(tmp_dir, dvc, path):
 
     outs = dvc.find_outs_by_path(path, strict=False)
     assert len(outs) == 1
-    assert outs[0].path_info == stage.outs[0].path_info
+    assert outs[0].fs_path == stage.outs[0].fs_path
 
 
 def test_find_outs_by_path_does_graph_checks(tmp_dir, dvc):
@@ -77,7 +77,9 @@ def test_locked(mocker):
 
 def test_skip_graph_checks(tmp_dir, dvc, mocker, run_copy):
     # See https://github.com/iterative/dvc/issues/2671 for more info
-    mock_build_graph = mocker.patch("dvc.repo.index.Index.build_graph")
+    from dvc.repo.index import Index
+
+    mock_build_graph = mocker.spy(Index.graph, "fget")
 
     # sanity check
     tmp_dir.gen("foo", "foo text")
@@ -120,9 +122,9 @@ def test_branch_config(tmp_dir, scm):
     scm.checkout("master")
 
     with pytest.raises(NotDvcRepoError):
-        Repo(scm=scm, rev="master").close()
+        Repo(rev="master").close()
 
-    dvc = Repo(scm=scm, rev="branch")
+    dvc = Repo(rev="branch")
     try:
         assert dvc.config["remote"]["branch"]["url"] == "/some/path"
     finally:

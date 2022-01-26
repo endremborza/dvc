@@ -6,8 +6,6 @@ from unittest import TestCase
 
 import pytest
 import shortuuid
-from git import Repo
-from git.exc import GitCommandNotFound
 
 from dvc.repo import Repo as DvcRepo
 from dvc.utils.fs import remove
@@ -116,37 +114,15 @@ class TestGitFixture(TestDirFixture):
     N_RETRIES = 5
 
     def setUp(self):
-        super().setUp()
-        # NOTE: handles EAGAIN error on BSD systems (osx in our case).
-        # Otherwise when running tests you might get this exception:
-        #
-        #    GitCommandNotFound: Cmd('git') not found due to:
-        #        OSError('[Errno 35] Resource temporarily unavailable')
-        retries = self.N_RETRIES
-        while True:
-            try:
-                self.git = Repo.init()
-                break
-            except GitCommandNotFound:
-                retries -= 1
-                if not retries:
-                    raise
+        from scmrepo.git import Git
 
-        self.git.index.add([self.CODE])
-        self.git.index.commit("add code")
+        super().setUp()
+        self.git = Git.init(".")
+        self.git.add_commit(self.CODE, message="add code")
 
     def tearDown(self):
         self.git.close()
         super().tearDown()
-
-
-class TestGitSubmoduleFixture(TestGitFixture):
-    def setUp(self):
-        super().setUp()
-        subrepo = Repo.init()
-        subrepo_path = "subrepo"
-        self.git.create_submodule(subrepo_path, subrepo_path, subrepo.git_dir)
-        self._pushd(subrepo_path)
 
 
 class TestDvcFixture(TestDirFixture):
@@ -182,12 +158,6 @@ class TestDir(TestDirFixture, TestCase):
 class TestGit(TestGitFixture, TestCase):
     def __init__(self, methodName):
         TestGitFixture.__init__(self)
-        TestCase.__init__(self, methodName)
-
-
-class TestGitSubmodule(TestGitSubmoduleFixture, TestCase):
-    def __init__(self, methodName):
-        TestGitSubmoduleFixture.__init__(self)
         TestCase.__init__(self, methodName)
 
 
